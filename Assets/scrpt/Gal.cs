@@ -7,7 +7,6 @@ public class Gal : Evnt
 
     Mesh mesh;
 
-    readonly float length = 1, height = 0.2f, safeDist = 1;
 
     [SerializeField]
     Transform[] points;
