@@ -132,20 +132,19 @@ public class Lookie : MonoBehaviour
     }
 
     [SerializeField]
-    Transform[] points;
+    MeshRenderer[] points;
+
+    [SerializeField]
+    Material[] colors;
 
     readonly float length = 1, height = 0.06f, width = 0.01f, offset = 0.02f;
 
     private IEnumerator Knife(RaycastHit hit)
     {
-        Mesh mesh = (hit.collider as MeshCollider).sharedMesh;
+        MeshFilter mF = hit.transform.GetComponent<MeshFilter>();
+        Mesh mesh = mF.mesh;
 
-
-
-        RaycastHit[] info;
-        info = new RaycastHit[6];
-
-
+        RaycastHit[] info = new RaycastHit[6];
 
         List<int> tris = new();
         tris.Add(hit.triangleIndex);
@@ -154,6 +153,8 @@ public class Lookie : MonoBehaviour
 
         for (int i = 0; i < info.Length; i++)
         {
+            points[i].material = colors[^1];
+
             Vector3 from;
 
             if (i % 3 > 0)
@@ -174,72 +175,154 @@ public class Lookie : MonoBehaviour
                 tris.Add(info[i].triangleIndex);
             }
 
-            points[i].position = info[i].point;
-            points[i].parent = hit.transform;
-            verts.Add(points[i].localPosition);
+            points[i].transform.position = info[i].point;
+            points[i].transform.parent = hit.transform;
+            verts.Add(points[i].transform.localPosition);
         }
 
-        if (tris.Count == 1)
+        if (tris.Count == 1 && verts.Count == 6)
         {
-            int startPoint = 0;
-            float dist = 3;
 
-            for (int i = 1; i < verts.Count; i++)
-            {
-                float d = (mesh.vertices[tris[0] * 3] - verts[i]).magnitude;
+            int[] closest = new int[3];
 
-                if (d < dist)
-                {
-                    startPoint = i;
-                    dist = d;
-                }
-
-            }
-
-            startPoint = (startPoint - 1 + verts.Count) % verts.Count;
-            int point = startPoint;
+            List<int>[] vertverts = new List<int>[3];
 
             for (int i = 0; i < 3; i++)
             {
-                Vector3[] norms;
-                norms = new Vector3[3];
+                
+                Vector2[] dists = new Vector2[6];
 
-                for (int i2 = 0; i2 < norms.Length; i2++)
+                closest[i] = 0;
+
+                for (int i2 = 0; i2 < dists.Length; i2++)
                 {
-                    norms[i2] = (mesh.vertices[tris[0] * 3 + i] - verts[(point + i2 - 1 + verts.Count) % verts.Count]).normalized;
+                    dists[i2] = mesh.vertices[tris[0] * 3 + i] - verts[i2];
+
+                    if (dists[i2].magnitude < dists[closest[i]].magnitude)
+                    {
+                        closest[i] = i2;
+                    }
                 }
 
-                float mag = (norms[0] - norms[2]).magnitude, magprev = (norms[1] - norms[0]).magnitude, magNext = (norms[1] - norms[2]).magnitude;
-                if (mag < magprev || mag < magNext)
-                {
-                    startPoint = (startPoint + 1) % verts.Count;
-                    point = startPoint;
-                    i = -1;
+                vertverts[i] = new();
+                vertverts[i].Add(closest[i]);
 
-                    yield return null;
-                }
-                else
+                bool contNeg = true;
+                bool contPos = true;
+
+                for (int i2 = 0; i2 < 3; i2++)
                 {
-                    point = (point + 2) % verts.Count;
+                    if (contNeg)
+                    {
+                        if (Vector3.SignedAngle(dists[(closest[i] - i2 + 6) % 6], dists[(closest[i] - i2 + 5) % 6], hit.normal) < 0)
+                        {
+                            vertverts[i].Insert(0, (closest[i] - i2 + 5) % 6);
+                        }
+                        else
+                        {
+                            contNeg = false;
+                        }
+                    }
+
+                    if (contPos)
+                    {
+                        if (Vector3.SignedAngle(dists[(closest[i] + i2) % 6], dists[(closest[i] + i2 + 1) % 6], hit.normal) > 0)
+                        {
+                            vertverts[i].Add((closest[i] + i2 + 1) % 6);
+                        }
+                        else
+                        {
+                            contPos = false;
+                        }
+                    }
+                    
                 }
 
             }
 
             for (int i = 0; i < 3; i++)
             {
-                points[(startPoint + 2 * i) % verts.Count].localPosition = mesh.vertices[tris[0] * 3 + i];
+                for (int i2 = 1; i2 < vertverts[i].Count; i2++)
+                {
+                    if (vertverts[(i + 2) % 3].Contains(vertverts[i][i2]))
+                    {
+                        vertverts[(i + 2) % 3].Remove(vertverts[i][i2]);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
             }
-        }
 
-        List<int> newTris = new();
-        for (int i = 0; i < mesh.triangles.Length; i++)
-        {
-            if (!tris.Contains(mesh.triangles[i] / 3))
+            List<Vector3> newVerts = new(mesh.vertices);
+            newVerts.AddRange(verts);
+
+            List<int> newTris = new(mesh.triangles);
+
+            foreach (int tri in tris)
             {
-                newTris.Add(mesh.triangles[i]);
+                for (int i = 0; i < 3; i++)
+                {
+                    newTris.RemoveAt(tri * 3);
+                }
             }
+
+            int start = mesh.vertexCount;
+
+            for (int i = 0; i < 3; i++)
+            {
+                //clockwise
+                newTris.Add(tris[0] * 3 + (i + 2) % 3);
+                newTris.Add(tris[0] * 3 + i);
+                newTris.Add(start + vertverts[i][0]);
+
+                for (int i2 = 1; i2 < vertverts[i].Count; i2++)
+                {
+                    newTris.Add(start + vertverts[i][i2]);
+                    newTris.Add(start + vertverts[i][i2 - 1]);
+                    newTris.Add(tris[0] * 3 + i);
+                }
+            }
+
+
+            mesh.Clear();
+
+            mesh.vertices = newVerts.ToArray();
+            mesh.triangles = newTris.ToArray();
+
+            mesh.Optimize();
+
+            mF.mesh = mesh;
+
+
+
+
+
+            for (int i = 0; i < 3; i++)
+            {
+                for (int i2 = 0; i2 < vertverts[i].Count; i2++)
+                {
+                    int c = i;
+
+                    for (int i3 = 0; i3 < i; i3++)
+                    {
+                        if (vertverts[i3].Contains(vertverts[i][i2]))
+                        {
+                            c += i3 + 2;
+                        }
+                    }
+
+                    points[vertverts[i][i2]].material = colors[c];
+                }
+            }
+
         }
 
 
+
+
+
+        yield return null;
     }
 }
