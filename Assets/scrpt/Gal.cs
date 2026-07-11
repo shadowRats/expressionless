@@ -11,17 +11,5 @@ public class Gal : Evnt
 
     }
 
-    public override void Interact(RaycastHit info)
-    {
-        StartCoroutine(Knife());
 
-
-    }
-
-
-    IEnumerator Knife()
-    {
-        yield return null;
-
-    }
 }

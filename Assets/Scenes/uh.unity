@@ -2798,7 +2798,7 @@ MeshRenderer:
   m_Materials:
   - {fileID: 2100000, guid: 8b36c209e2b6e1e4bb07ee3da75fd82f, type: 2}
   - {fileID: 2100000, guid: 4eca6fe38f3f3174c8bb37ed6f0becb0, type: 2}
-  - {fileID: 2100000, guid: 8b36c209e2b6e1e4bb07ee3da75fd82f, type: 2}
+  - {fileID: 2100000, guid: 4da15a43f9741bc4d870f5afcd95f076, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2840,7 +2840,7 @@ GameObject:
   - component: {fileID: 2914992595542975142}
   - component: {fileID: 1460561300039071417}
   - component: {fileID: 3756918412222317862}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Sphere
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2862,8 +2862,8 @@ Transform:
   m_Father: {fileID: 4927713361075909672}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!135 &3756918412222317862
-SphereCollider:
+--- !u!64 &3756918412222317862
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -2872,9 +2872,10 @@ SphereCollider:
   m_Material: {fileID: 0}
   m_IsTrigger: 0
   m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 1.1471483
-  m_Center: {x: -0.0000007748604, y: 0.00000035762778, z: 0.046748746}
+  serializedVersion: 4
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 4711208715938537054, guid: 0792d2b7cedde8b41884f228421da986, type: 3}
 --- !u!1 &4539233221397324686
 GameObject:
   m_ObjectHideFlags: 0
@@ -3019,7 +3020,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 408a6ff5cadedc84f806310cb5db647e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  points:
-  - {fileID: 1025299804}
-  - {fileID: 42994523}
-  - {fileID: 1714302326}

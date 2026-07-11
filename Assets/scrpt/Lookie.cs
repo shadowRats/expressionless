@@ -11,13 +11,15 @@ public class Lookie : MonoBehaviour
     protected Camera cam;
 
     readonly List<Transform> interactables = new();
-    readonly List<Evnt> events = new();
+    
 
-    int hit = 0;
+    int hitI = -1;
 
     bool paused = false;
 
     protected float camDist;
+
+
 
     protected virtual void Start()
     {
@@ -25,7 +27,6 @@ public class Lookie : MonoBehaviour
 
 
         interactables.Add(null);
-        events.Add(GetComponent<Evnt>());
 
 
         canvas = FindObjectOfType<Canvas>();
@@ -58,7 +59,11 @@ public class Lookie : MonoBehaviour
 
             Physics.Raycast(cam.transform.position, cam.transform.forward, out RaycastHit info, reach + camDist, LayerMask.GetMask("Interactable"));
 
-            if (info.transform != interactables[hit])
+            if (info.transform == null)
+            {
+                hitI = -1;
+            }
+            else if (info.transform != interactables[hitI])
             {
                 bool b = true;
 
@@ -75,22 +80,19 @@ public class Lookie : MonoBehaviour
                     i++;
                 }
 
-                hit = i;
+                hitI = i; 
 
                 if (b)
                 {
                     interactables.Add(info.transform);
-                    events.Add(info.transform.GetComponent<Evnt>());
+                    tris.Add(new List<int>());
                 }
 
                 //show something!!!!
 
             }
-
-            if (Input.GetKeyDown(KeyCode.Mouse0))
+            else if (Input.GetKeyDown(KeyCode.Mouse0))
             {
-                //events[hit].Interact(info);
-
                 StartCoroutine(Knife(info));
             }
 
@@ -116,12 +118,12 @@ public class Lookie : MonoBehaviour
                 Move(-transform.right);
             }
 
-            Update2();
+            Update2(); //REMEMBER THIS IS INSIDE UNPAUSED
 
         }
     }
 
-    protected virtual void Update2()
+    protected virtual void Update2()//INSIDE UNPAUSDE
     {
 
     }
@@ -137,19 +139,29 @@ public class Lookie : MonoBehaviour
     [SerializeField]
     Material[] colors;
 
-    readonly float length = 1, height = 0.06f, width = 0.01f, offset = 0.02f;
+    [SerializeField]
+    readonly List<List<int>> tris = new();
+
+
+
+    readonly float length = 1, height = 0.06f, width = 0.01f, offset = 0.02f, depth = 0.02f;
 
     private IEnumerator Knife(RaycastHit hit)
     {
+        if (!tris[hitI].Contains(hit.triangleIndex))
+        {
+            tris[hitI].Add(hit.triangleIndex);
+        }
+
         MeshFilter mF = hit.transform.GetComponent<MeshFilter>();
         Mesh mesh = mF.mesh;
 
         RaycastHit[] info = new RaycastHit[6];
 
-        List<int> tris = new();
-        tris.Add(hit.triangleIndex);
-
         List<Vector3> verts = new();
+
+        List<int> newTris = new(mesh.triangles);
+        List<Vector3> newVerts = new(mesh.vertices);
 
         for (int i = 0; i < info.Length; i++)
         {
@@ -170,22 +182,35 @@ public class Lookie : MonoBehaviour
 
             Physics.Raycast(cam.transform.position + from, cam.transform.forward, out info[i], reach + camDist + length, LayerMask.GetMask("Interactable"));
 
-            if (!tris.Contains(info[i].triangleIndex))
+            if (info[i].triangleIndex == hit.triangleIndex)
             {
-                tris.Add(info[i].triangleIndex);
+                points[i].transform.position = info[i].point + hit.normal * depth;
+                points[i].transform.parent = hit.transform;
+                verts.Add(points[i].transform.localPosition);
             }
-
-            points[i].transform.position = info[i].point;
-            points[i].transform.parent = hit.transform;
-            verts.Add(points[i].transform.localPosition);
         }
 
-        if (tris.Count == 1 && verts.Count == 6)
+        if (verts.Count == 0)
+        {
+            points[0].transform.position = hit.point + hit.normal * depth;
+            points[0].transform.parent = hit.transform;
+
+            newVerts.Add(points[0].transform.localPosition);
+
+            for (int i = 0; i < 3; i++)
+            {
+                newTris.Add(hit.triangleIndex * 3 + (i + 2) % 3);
+                newTris.Add(hit.triangleIndex * 3 + i);
+                newTris.Add(mesh.vertexCount);
+            }
+        }
+        else if (verts.Count == 6)
         {
 
             int[] closest = new int[3];
 
             List<int>[] vertverts = new List<int>[3];
+
 
             for (int i = 0; i < 3; i++)
             {
@@ -196,7 +221,7 @@ public class Lookie : MonoBehaviour
 
                 for (int i2 = 0; i2 < dists.Length; i2++)
                 {
-                    dists[i2] = mesh.vertices[tris[0] * 3 + i] - verts[i2];
+                    dists[i2] = mesh.vertices[hit.triangleIndex] - verts[i2];
 
                     if (dists[i2].magnitude < dists[closest[i]].magnitude)
                     {
@@ -255,47 +280,25 @@ public class Lookie : MonoBehaviour
                 }
             }
 
-            List<Vector3> newVerts = new(mesh.vertices);
             newVerts.AddRange(verts);
 
-            List<int> newTris = new(mesh.triangles);
-
-            foreach (int tri in tris)
-            {
-                for (int i = 0; i < 3; i++)
-                {
-                    newTris.RemoveAt(tri * 3);
-                }
-            }
 
             int start = mesh.vertexCount;
 
             for (int i = 0; i < 3; i++)
             {
                 //clockwise
-                newTris.Add(tris[0] * 3 + (i + 2) % 3);
-                newTris.Add(tris[0] * 3 + i);
+                newTris.Add(hit.triangleIndex * 3 + (i + 2) % 3);
+                newTris.Add(hit.triangleIndex * 3 + i);
                 newTris.Add(start + vertverts[i][0]);
 
                 for (int i2 = 1; i2 < vertverts[i].Count; i2++)
                 {
                     newTris.Add(start + vertverts[i][i2]);
                     newTris.Add(start + vertverts[i][i2 - 1]);
-                    newTris.Add(tris[0] * 3 + i);
+                    newTris.Add(hit.triangleIndex * 3 + i);
                 }
             }
-
-
-            mesh.Clear();
-
-            mesh.vertices = newVerts.ToArray();
-            mesh.triangles = newTris.ToArray();
-
-            mesh.Optimize();
-
-            mF.mesh = mesh;
-
-
 
 
 
@@ -322,6 +325,14 @@ public class Lookie : MonoBehaviour
 
 
 
+        mesh.Clear();
+
+        mesh.vertices = newVerts.ToArray();
+        mesh.triangles = newTris.ToArray();
+
+        
+
+        mF.mesh = mesh;
 
         yield return null;
     }
