@@ -153,6 +153,7 @@ public class Lookie : MonoBehaviour
             tris[hitI].Add(hit.triangleIndex);
         }
 
+        // OH don'tupset valentina, she may be patient, but she is sensitive, and does have quite a bit of control over this place
         MeshFilter mF = hit.transform.GetComponent<MeshFilter>();
         Mesh mesh = mF.mesh;
 
